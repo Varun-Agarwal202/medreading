@@ -56,8 +56,12 @@ This repo is compatible with Vercel using **API routes** (`/api/*`). Do **not** 
 2. In Vercel, import the repo.
 3. In Vercel → Project → Settings → Environment Variables, add:
    - `GEMINI_API_KEY` (required)
-   - `GEMINI_MODEL` (optional, e.g. `gemini-flash-latest`)
+   - `GEMINI_MODEL` (optional, recommended: `gemini-1.5-flash`)
 4. Deploy.
+
+### Debug model availability
+
+If generation fails with "model not found", visit `/api/models` on your deployed site to see which model strings your key supports, then set `GEMINI_MODEL` accordingly.
 
 ### PDFs
 

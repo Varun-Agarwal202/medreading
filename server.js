@@ -9,8 +9,8 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 5173);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// Prefer modern "latest" aliases / current stable model names.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-flash-latest';
+// Default requested model (will fall back if unsupported for a given key).
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 const app = express();
 app.use(express.json({ limit: '25mb' }));
