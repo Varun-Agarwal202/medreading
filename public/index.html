@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical Reading Test Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1410;
+    --paper: #f5f0e8;
+    --cream: #faf7f2;
+    --gold: #c8973a;
+    --gold-light: #e8b84a;
+    --rust: #8b3a2a;
+    --sage: #4a6741;
+    --slate: #3d4f5c;
+    --muted: #7a6f62;
+    --border: #d4c9b5;
+    --shadow: rgba(26,20,16,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Source Serif 4', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 2rem 2rem;
+    border-bottom: 1px solid rgba(200,151,58,0.25);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200,151,58,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    opacity: 0.85;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--paper);
+  }
+  header h1 em { font-style: italic; color: var(--gold-light); }
+  header p {
+    margin-top: 0.75rem;
+    color: var(--muted);
+    font-size: 1rem;
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  main { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 1.25rem;
+    opacity: 0.8;
+  }
+
+  .panel {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(200,151,58,0.2);
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1; min-width: 220px; }
+
+  .btn {
+    background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+    color: #1a1410;
+    border: none;
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--paper);
+    border: 1px solid rgba(200,151,58,0.35);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    cursor: pointer;
+  }
+  .field label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+  }
+  .field input, .field select {
+    width: 100%;
+    padding: 0.8rem 0.9rem;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(212,201,181,0.25);
+    color: var(--paper);
+    outline: none;
+  }
+  .field small { display: block; margin-top: 0.5rem; color: var(--muted); }
+
+  .loading {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(200,151,58,0.25);
+    background: rgba(255,255,255,0.03);
+  }
+  .loading.visible { display: block; }
+  .progress {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+    margin-top: 0.75rem;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    transition: width 0.2s ease;
+  }
+
+  .error {
+    display: none;
+    margin-top: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(139,58,42,0.6);
+    background: rgba(139,58,42,0.12);
+    color: #ffd7d1;
+  }
+  .error.visible { display: block; }
+
+  /* Test output */
+  #test-output { margin-top: 2rem; }
+  .test-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .test-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 1.75rem;
+  }
+  .test-header p { color: var(--muted); margin-top: 0.35rem; }
+  .test-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .book-section { margin-top: 1rem; }
+  .book-section-header {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: 0.8rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid rgba(200,151,58,0.25);
+    background: rgba(255,255,255,0.03);
+  }
+  .book-section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .book-section-title { font-weight: 800; }
+  .book-section-author { color: var(--muted); font-style: italic; }
+
+  .question-card {
+    margin-top: 0.85rem;
+    border-radius: 10px;
+    border: 1px solid rgba(212,201,181,0.2);
+    background: rgba(0,0,0,0.15);
+    padding: 0.95rem 1rem;
+  }
+  .question-meta { display: flex; gap: 0.75rem; align-items: center; }
+  .q-number {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--gold);
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+  }
+  .q-page {
+    font-family: 'JetBrains Mono', monospace;
+    color: rgba(245,240,232,0.7);
+    font-size: 0.7rem;
+  }
+  .question-text { margin-top: 0.6rem; line-height: 1.35; }
+  .choices { margin-top: 0.75rem; display: grid; gap: 0.5rem; }
+  .choice {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
+    border: 1px solid rgba(212,201,181,0.18);
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+  }
+  .choice:hover { transform: translateY(-1px); border-color: rgba(200,151,58,0.35); }
+  .choice-letter {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-weight: 900;
+    background: rgba(200,151,58,0.18);
+    border: 1px solid rgba(200,151,58,0.35);
+    color: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    flex: 0 0 auto;
+  }
+  .choice.correct { border-color: rgba(74,103,65,0.75); background: rgba(74,103,65,0.15); }
+  .choice.incorrect { border-color: rgba(139,58,42,0.75); background: rgba(139,58,42,0.14); }
+  .answer-key {
+    display: none;
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(200,151,58,0.25);
+    background: rgba(255,255,255,0.03);
+  }
+  .answer-key.visible { display: block; }
+  .answer-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.35rem 0.75rem; margin-top: 0.75rem; }
+  .answer-item { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(245,240,232,0.9); }
+  .answer-item span { color: var(--gold-light); font-weight: 800; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="header-eyebrow">HOSA · Medical Reading · Study Guide</div>
+    <h1>In‑Depth <em>Quiz Generator</em></h1>
+    <p>Loads the 5 PDFs in this folder, extracts text + page images, then generates lots of questions per book.</p>
+  </header>
+
+  <main>
+    <div class="section-label">Setup</div>
+    <div class="panel">
+      <div class="row">
+        <div class="field">
+          <label>Questions per book</label>
+          <input id="q-per-book" type="number" min="5" max="200" value="30" />
+          <small>Higher = more coverage (takes longer / more API calls).</small>
+        </div>
+        <div class="field">
+          <label>Page image sampling</label>
+          <select id="img-sampling">
+            <option value="0">No images</option>
+            <option value="8">Every 8 pages (recommended)</option>
+            <option value="5">Every 5 pages</option>
+            <option value="3">Every 3 pages</option>
+          </select>
+          <small>Images help with tables/figures/diagrams, but increases cost/time.</small>
+        </div>
+        <div class="field">
+          <label>Book</label>
+          <select id="book-select">
+            <option value="">Select a book…</option>
+          </select>
+          <small>Generate a single-book quiz or all books.</small>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 1rem;">
+        <button class="btn" id="btn-load">Load PDFs (extract text + images)</button>
+        <button class="btn" id="btn-full" disabled>Generate Full Test (all books)</button>
+        <button class="btn-ghost" id="btn-single" disabled>Generate Single Book</button>
+      </div>
+
+      <div id="loading" class="loading">
+        <div id="loading-status">Starting…</div>
+        <div class="progress"><div id="progress-fill"></div></div>
+      </div>
+      <div id="error-box" class="error"></div>
+    </div>
+
+    <div id="test-output">
+      <div class="test-header">
+        <div class="test-header-left">
+          <h2 id="test-title">Test</h2>
+          <p id="test-subtitle"></p>
+        </div>
+        <div class="test-actions">
+          <button class="btn-ghost" onclick="toggleAnswerKey()">Answer Key</button>
+          <button class="btn-ghost" onclick="revealAll()">Reveal All</button>
+          <button class="btn-ghost" onclick="window.print()">Print / Save PDF</button>
+          <button class="btn-ghost" onclick="clearTest()">Clear</button>
+        </div>
+      </div>
+      <div id="test-content"></div>
+      <div class="answer-key" id="answer-key">
+        <h3>Answer Key</h3>
+        <div class="answer-grid" id="answer-grid"></div>
+      </div>
+    </div>
+  </main>
+
+<script type="module">
+import * as pdfjsLib from '/vendor/pdfjs/pdf.mjs';
+
+// ─────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────
+let allAnswers = {}; // questionId -> correct letter
+let revealed = {}; // questionId -> chosen letter
+let BOOKS = []; // from /api/books
+let EXTRACTED = {}; // bookKey -> { text, images[] }
+
+function setLoading(visible, status = '', progress = 0) {
+  const el = document.getElementById('loading');
+  el.classList.toggle('visible', visible);
+  document.getElementById('loading-status').textContent = status;
+  document.getElementById('progress-fill').style.width = progress + '%';
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-box');
+  el.textContent = msg;
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 9000);
+}
+
+function disableButtons(disabled) {
+  ['btn-load','btn-full','btn-single'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+
+async function boot() {
+  try {
+    const r = await fetch('/api/books');
+    const data = await r.json();
+    BOOKS = data.books || [];
+    const sel = document.getElementById('book-select');
+    BOOKS.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.key;
+      opt.textContent = `${b.title} — ${b.author}`;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      document.getElementById('btn-single').disabled = !sel.value || !EXTRACTED[sel.value];
+    });
+  } catch (e) {
+    showError('Could not load book list. Is the server running?');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  PDF extraction (text + sampled page images)
+// ─────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.mjs";
+
+async function extractBookFromPdf(book, imgEveryNPages) {
+  const url = '/books/' + encodeURIComponent(book.pdfFilename);
+  const pdf = await pdfjsLib.getDocument({ url }).promise;
+  const numPages = pdf.numPages;
+
+  let fullText = '';
+  const images = [];
+
+  for (let p = 1; p <= numPages; p++) {
+    const page = await pdf.getPage(p);
+
+    // Text
+    const txt = await page.getTextContent();
+    const pageText = (txt.items || []).map(it => it.str).join(' ').replace(/\s+/g,' ').trim();
+    if (pageText) {
+      fullText += `[Page ${p}]\n${pageText}\n\n`;
+    } else {
+      fullText += `[Page ${p}]\n\n`;
+    }
+
+    // Image sampling (render page as a low-res jpeg)
+    if (imgEveryNPages > 0 && (p === 1 || p % imgEveryNPages === 0)) {
+      const viewport = page.getViewport({ scale: 1.25 });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      images.push(dataUrl);
+    }
+  }
+
+  return { text: fullText.trim(), images };
+}
+
+function chunkByPages(text, pagesPerChunk = 20) {
+  const chunks = [];
+  const parts = text.split(/\[Page\s+\d+\]/g);
+  // parts[0] is preamble (likely empty)
+  const pageMarkers = [...text.matchAll(/\[Page\s+(\d+)\]/g)].map(m => Number(m[1]));
+
+  let current = '';
+  let pageCount = 0;
+  for (let i = 1; i < parts.length; i++) {
+    const pageNum = pageMarkers[i-1] ?? i;
+    const pageBody = parts[i].trim();
+    const block = `[Page ${pageNum}]\n${pageBody}\n\n`;
+    current += block;
+    pageCount++;
+    if (pageCount >= pagesPerChunk) {
+      chunks.push(current.trim());
+      current = '';
+      pageCount = 0;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+async function pMapLimit(items, limit, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = new Array(Math.max(1, limit)).fill(0).map(async () => {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      results[i] = await mapper(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+// ─────────────────────────────────────────────
+//  API call (server-side LLM)
+// ─────────────────────────────────────────────
+async function generateQuestionsForSegment(book, segment, images, numQuestions, startNumber) {
+  // Retry once on flaky model/JSON failures so a single bad segment doesn't stop the whole run.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const resp = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book, segment, images, numQuestions, startNumber })
+    });
+    if (resp.ok) return await resp.json();
+
+    const err = await resp.json().catch(() => ({}));
+    const msg = err.error || `API error ${resp.status}`;
+
+    const retryable =
+      /invalid json/i.test(msg) ||
+      /returned invalid json/i.test(msg) ||
+      /parse/i.test(msg) ||
+      /timeout/i.test(msg) ||
+      /temporar/i.test(msg) ||
+      resp.status >= 500;
+
+    if (attempt === 2 || !retryable) {
+      throw new Error(msg);
+    }
+
+    // brief backoff
+    await new Promise(r => setTimeout(r, 600));
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Test generation
+// ─────────────────────────────────────────────
+async function generateBookQuiz(bookKey, totalQuestions, globalStartNumber) {
+  const book = BOOKS.find(b => b.key === bookKey);
+  const extracted = EXTRACTED[bookKey];
+  if (!book || !extracted?.text) throw new Error('Book not loaded yet.');
+
+  const imgEvery = Number(document.getElementById('img-sampling').value || 0);
+  const useImages = imgEvery > 0;
+  const segments = chunkByPages(extracted.text, 12);
+
+  // Distribute questions across segments for full-book coverage
+  const perSegBase = Math.floor(totalQuestions / segments.length);
+  const remainder = totalQuestions % segments.length;
+
+  let nextNumber = globalStartNumber;
+  const all = [];
+
+  const segPlan = segments.map((seg, i) => ({
+    seg,
+    i,
+    segQ: perSegBase + (i < remainder ? 1 : 0)
+  })).filter(x => x.segQ > 0);
+
+  // Precompute start numbers for each planned segment (stable even when run in parallel).
+  let running = globalStartNumber;
+  const startByIndex = new Map();
+  for (const item of segPlan) {
+    startByIndex.set(item.i, running);
+    running += item.segQ;
+  }
+
+  // Parallelize a bit for speed, but keep concurrency low to avoid rate limits.
+  const CONCURRENCY = 2;
+
+  const results = await pMapLimit(segPlan, CONCURRENCY, async (item) => {
+    const pct = Math.round(((item.i + 1) / segments.length) * 70);
+    setLoading(true, `Generating "${book.title}" · segment ${item.i+1}/${segments.length}…`, pct);
+
+    // To reduce payload/latency, only include images on every other segment.
+    const includeImages = useImages && (item.i % 2 === 0);
+    const img = includeImages ? extracted.images : [];
+
+    const start = startByIndex.get(item.i) ?? globalStartNumber;
+
+    const data = await generateQuestionsForSegment(book, item.seg, img, item.segQ, start);
+    return data.questions || [];
+  });
+
+  results.flat().forEach(q => all.push(q));
+  nextNumber = globalStartNumber + all.length;
+
+  // Ensure numbering is consecutive (models sometimes slip)
+  all.forEach((q, idx) => q.number = globalStartNumber + idx);
+  return all;
+}
+
+async function generateFullTest() {
+  disableButtons(true);
+  setLoading(true, 'Generating full test…', 5);
+  allAnswers = {};
+  revealed = {};
+
+  const qPerBook = Math.max(5, Math.min(200, parseInt(document.getElementById('q-per-book').value, 10) || 30));
+
+  try {
+    const sections = [];
+    let num = 1;
+    for (let i = 0; i < BOOKS.length; i++) {
+      const b = BOOKS[i];
+      if (!EXTRACTED[b.key]) throw new Error('Please click "Load PDFs" first.');
+      setLoading(true, `Generating questions for "${b.title}"…`, Math.round((i / BOOKS.length) * 15) + 5);
+      const questions = await generateBookQuiz(b.key, qPerBook, num);
+      sections.push({ key: b.key, title: b.title, author: b.author, questions });
+      num += questions.length;
+    }
+
+    setLoading(true, 'Rendering test…', 95);
+    renderTest(
+      `Comprehensive Test (${qPerBook * BOOKS.length} questions)`,
+      `${qPerBook} questions per book · text + optional page images`,
+      sections
+    );
+    setLoading(false);
+  } catch (err) {
+    setLoading(false);
+    showError('Error generating test: ' + (err?.message || String(err)));
+  } finally {
+    disableButtons(false);
+    document.getElementById('btn-full').disabled = !Object.keys(EXTRACTED).length;
+    document.getElementById('btn-single').disabled = !document.getElementById('book-select').value;
+  }
+}
+
+async function generateSingleTest() {
+  const key = document.getElementById('book-select').value;
+  if (!key) return;
+  const qPerBook = Math.max(5, Math.min(200, parseInt(document.getElementById('q-per-book').value, 10) || 30));
+
+  disableButtons(true);
+  setLoading(true, 'Generating…', 10);
+  allAnswers = {};
+  revealed = {};
+
+  try {
+    if (!EXTRACTED[key]) throw new Error('Please click "Load PDFs" first.');
+    const book = BOOKS.find(b => b.key === key);
+    const questions = await generateBookQuiz(key, qPerBook, 1);
+    renderTest(book.title, `${qPerBook}-question quiz · ${book.author}`, [
+      { key, title: book.title, author: book.author, questions }
+    ]);
+    setLoading(false);
+  } catch (err) {
+    setLoading(false);
+    showError('Error generating test: ' + (err?.message || String(err)));
+  } finally {
+    disableButtons(false);
+    document.getElementById('btn-full').disabled = !Object.keys(EXTRACTED).length;
+    document.getElementById('btn-single').disabled = !key;
+  }
+}
+
+async function loadAllPdfs() {
+  disableButtons(true);
+  setLoading(true, 'Loading PDFs…', 5);
+  EXTRACTED = {};
+
+  const imgEvery = Number(document.getElementById('img-sampling').value || 0);
+
+  try {
+    for (let i = 0; i < BOOKS.length; i++) {
+      const b = BOOKS[i];
+      const pct = Math.round((i / BOOKS.length) * 70) + 10;
+      setLoading(true, `Extracting "${b.title}" (this can take a bit)…`, pct);
+      const extracted = await extractBookFromPdf(b, imgEvery);
+      EXTRACTED[b.key] = extracted;
+    }
+    setLoading(false);
+    document.getElementById('btn-full').disabled = false;
+    const key = document.getElementById('book-select').value;
+    document.getElementById('btn-single').disabled = !key;
+  } catch (err) {
+    setLoading(false);
+    showError('PDF extraction failed: ' + (err?.message || String(err)));
+  } finally {
+    disableButtons(false);
+    document.getElementById('btn-load').disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Rendering + interactions
+// ─────────────────────────────────────────────
+function renderTest(title, subtitle, sections) {
+  document.getElementById('test-title').textContent = title;
+  document.getElementById('test-subtitle').textContent = subtitle;
+  document.getElementById('answer-key').classList.remove('visible');
+
+  const container = document.getElementById('test-content');
+  container.innerHTML = '';
+  const answerItems = [];
+
+  sections.forEach((section, si) => {
+    const secDiv = document.createElement('div');
+    secDiv.className = 'book-section';
+    secDiv.innerHTML = `
+      <div class="book-section-header">
+        <span class="book-section-num">Book ${String(si+1).padStart(2,'0')}</span>
+        <span class="book-section-title">${section.title}</span>
+        <span class="book-section-author">${section.author}</span>
+      </div>
+    `;
+
+    (section.questions || []).forEach(q => {
+      const qid = `q${q.number}`;
+      allAnswers[qid] = q.answer;
+
+      const card = document.createElement('div');
+      card.className = 'question-card';
+      card.id = qid + '-card';
+
+      const pageMatch = String(q.text || '').match(/\(pp[^\)]*\)/i);
+      const pageRef = pageMatch ? pageMatch[0] : '';
+      const cleanText = String(q.text || '');
+
+      card.innerHTML = `
+        <div class="question-meta">
+          <span class="q-number">Q${q.number}</span>
+          ${pageRef ? `<span class="q-page">${pageRef}</span>` : ''}
+        </div>
+        <div class="question-text">${escapeHtml(cleanText)}</div>
+        <div class="choices" id="${qid}-choices">
+          ${['A','B','C','D'].map(letter => `
+            <div class="choice" id="${qid}-${letter}" onclick="handleChoice('${qid}','${letter}')">
+              <span class="choice-letter">${letter}</span>
+              <span class="choice-text">${escapeHtml(q.choices?.[letter] || '')}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      secDiv.appendChild(card);
+      answerItems.push({ num: q.number, answer: q.answer });
+    });
+
+    container.appendChild(secDiv);
+  });
+
+  const grid = document.getElementById('answer-grid');
+  grid.innerHTML = answerItems.map(a =>
+    `<div class="answer-item">${a.num}. <span>${a.answer}</span></div>`
+  ).join('');
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+window.handleChoice = function(qid, letter) {
+  if (revealed[qid]) return;
+  revealed[qid] = letter;
+  const correct = allAnswers[qid];
+  const chosenEl = document.getElementById(`${qid}-${letter}`);
+  const correctEl = document.getElementById(`${qid}-${correct}`);
+  if (chosenEl) chosenEl.classList.add(letter === correct ? 'correct' : 'incorrect');
+  if (correctEl && letter !== correct) correctEl.classList.add('correct');
+};
+
+window.revealAll = function() {
+  Object.keys(allAnswers).forEach(qid => {
+    if (!revealed[qid]) {
+      revealed[qid] = allAnswers[qid];
+      const correctEl = document.getElementById(`${qid}-${allAnswers[qid]}`);
+      if (correctEl) correctEl.classList.add('correct');
+    }
+  });
+};
+
+window.toggleAnswerKey = function() {
+  document.getElementById('answer-key').classList.toggle('visible');
+};
+
+window.clearTest = function() {
+  document.getElementById('test-content').innerHTML = '';
+  document.getElementById('answer-grid').innerHTML = '';
+  document.getElementById('answer-key').classList.remove('visible');
+  allAnswers = {};
+  revealed = {};
+};
+
+document.getElementById('btn-load').addEventListener('click', loadAllPdfs);
+document.getElementById('btn-full').addEventListener('click', generateFullTest);
+document.getElementById('btn-single').addEventListener('click', generateSingleTest);
+
+boot();
+</script>
+</body>
+</html>
+
