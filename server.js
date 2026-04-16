@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT || 5173);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 // Default requested model (will fall back if unsupported for a given key).
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || 'v1';
 
 const app = express();
 app.use(express.json({ limit: '25mb' }));
@@ -150,7 +151,7 @@ app.post('/api/generate', async (req, res) => {
       '---'
     ].join('\n');
 
-    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY, apiVersion: GEMINI_API_VERSION });
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
       // Modern aliases / current families (per Google docs).

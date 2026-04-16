@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     // Default requested model (will fall back if unsupported for a given key).
     const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || 'v1';
 
     if (!GEMINI_API_KEY) {
       return res.status(400).json({
@@ -83,7 +84,12 @@ export default async function handler(req, res) {
       '---'
     ].join('\n');
 
-    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const genAI = new GoogleGenAI({
+      apiKey: GEMINI_API_KEY,
+      // Explicitly opt into the stable endpoint. Some newer models are not
+      // available on v1beta, which manifests as 404 "not found for API version v1beta".
+      apiVersion: GEMINI_API_VERSION
+    });
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
       // Widely-available stable names (often supported when "latest" aliases are not).

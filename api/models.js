@@ -3,13 +3,14 @@ import { GoogleGenAI } from '@google/genai';
 export default async function handler(_req, res) {
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || 'v1';
     if (!GEMINI_API_KEY) {
       return res.status(400).json({
         error: 'Missing GEMINI_API_KEY (set it in Vercel Environment Variables).'
       });
     }
 
-    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY, apiVersion: GEMINI_API_VERSION });
     const modelsResult = await genAI.models.list();
 
     // The SDK may return an array, an object with `models`, or an async iterable pager.
