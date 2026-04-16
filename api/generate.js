@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export const config = {
   api: {
@@ -40,12 +40,7 @@ export default async function handler(req, res) {
           .map((dataUrl) => {
             const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
             if (!m) return null;
-            return {
-              inlineData: {
-                mimeType: m[1],
-                data: m[2]
-              }
-            };
+            return { inlineData: { mimeType: m[1], data: m[2] } };
           })
           .filter(Boolean)
       : [];
@@ -88,7 +83,7 @@ export default async function handler(req, res) {
       '---'
     ].join('\n');
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
       // Widely-available stable names (often supported when "latest" aliases are not).
@@ -179,23 +174,22 @@ async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, i
   let text = '';
 
   for (const candidate of modelCandidates) {
-    const model = genAI.getGenerativeModel({ model: candidate });
-
     // Two attempts: first normal, second lower temperature.
     for (const attempt of [
       { temperature: 0.35, extra: '' },
       { temperature: 0.1, extra: '\n\nRemember: return ONLY raw JSON.\n' }
     ]) {
       try {
-        const result = await model.generateContent({
+        const result = await genAI.models.generateContent({
+          model: candidate,
           contents: [{ role: 'user', parts: [{ text: prompt + attempt.extra }, ...imgParts] }],
-          generationConfig: {
+          config: {
             responseMimeType: 'application/json',
             temperature: attempt.temperature,
             maxOutputTokens: 2500
           }
         });
-        text = result.response.text();
+        text = result.text ?? '';
 
         // If it parses, we can stop early (even if later we still validate structure).
         const quick = safeJsonParse(text);
@@ -231,16 +225,16 @@ async function repairToValidJson({ genAI, modelCandidates, badText }) {
 
   for (const candidate of modelCandidates) {
     try {
-      const model = genAI.getGenerativeModel({ model: candidate });
-      const result = await model.generateContent({
+      const result = await genAI.models.generateContent({
+        model: candidate,
         contents: [{ role: 'user', parts: [{ text: repairPrompt }] }],
-        generationConfig: {
+        config: {
           responseMimeType: 'application/json',
           temperature: 0,
           maxOutputTokens: 2000
         }
       });
-      const text = result.response.text();
+      const text = result.text ?? '';
       const parsed = safeJsonParse(text);
       if (parsed && Array.isArray(parsed.questions)) return parsed;
     } catch {

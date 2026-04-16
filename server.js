@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -150,7 +150,7 @@ app.post('/api/generate', async (req, res) => {
       '---'
     ].join('\n');
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
       // Modern aliases / current families (per Google docs).
@@ -273,22 +273,21 @@ async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, i
   let text = '';
 
   for (const candidate of modelCandidates) {
-    const model = genAI.getGenerativeModel({ model: candidate });
-
     for (const attempt of [
       { temperature: 0.35, extra: '' },
       { temperature: 0.1, extra: '\n\nRemember: return ONLY raw JSON.\n' }
     ]) {
       try {
-        const result = await model.generateContent({
+        const result = await genAI.models.generateContent({
+          model: candidate,
           contents: [{ role: 'user', parts: [{ text: prompt + attempt.extra }, ...imgParts] }],
-          generationConfig: {
+          config: {
             responseMimeType: 'application/json',
             temperature: attempt.temperature,
             maxOutputTokens: 2500
           }
         });
-        text = result.response.text();
+        text = result.text ?? '';
         return { text, lastErr: null };
       } catch (e) {
         lastErr = e;
@@ -315,16 +314,16 @@ async function repairToValidJson({ genAI, modelCandidates, badText }) {
 
   for (const candidate of modelCandidates) {
     try {
-      const model = genAI.getGenerativeModel({ model: candidate });
-      const result = await model.generateContent({
+      const result = await genAI.models.generateContent({
+        model: candidate,
         contents: [{ role: 'user', parts: [{ text: repairPrompt }] }],
-        generationConfig: {
+        config: {
           responseMimeType: 'application/json',
           temperature: 0,
           maxOutputTokens: 2000
         }
       });
-      const text = result.response.text();
+      const text = result.text ?? '';
       const parsed = safeJsonParse(text);
       if (parsed && Array.isArray(parsed.questions)) return parsed;
     } catch {

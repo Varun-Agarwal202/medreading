@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export default async function handler(_req, res) {
   try {
@@ -9,14 +9,13 @@ export default async function handler(_req, res) {
       });
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const models = await genAI.listModels();
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const models = await genAI.models.list();
 
-    // Keep response small + useful.
     const simplified = (models?.models || models || []).map((m) => ({
       name: m.name,
       displayName: m.displayName,
-      supportedGenerationMethods: m.supportedGenerationMethods
+      supportedActions: m.supportedActions
     }));
 
     return res.status(200).json({ models: simplified });

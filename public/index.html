@@ -380,6 +380,7 @@ let allAnswers = {}; // questionId -> correct letter
 let revealed = {}; // questionId -> chosen letter
 let BOOKS = []; // from /api/books
 let EXTRACTED = {}; // bookKey -> { text, images[] }
+let PDF_BASE = null; // null | '/books' | '' (root)
 
 function setLoading(visible, status = '', progress = 0) {
   const el = document.getElementById('loading');
@@ -417,6 +418,18 @@ async function boot() {
     sel.addEventListener('change', () => {
       document.getElementById('btn-single').disabled = !sel.value || !EXTRACTED[sel.value];
     });
+
+    // Detect where PDFs are served in this deployment so we don't spam 404s.
+    try {
+      const pr = await fetch('/api/pdfs');
+      const pd = await pr.json();
+      const anyInBooks = (pd.pdfs || []).some(x => x.dir === '/public/books');
+      const anyInRoot = (pd.pdfs || []).some(x => x.dir === '/public');
+      if (anyInBooks) PDF_BASE = '/books';
+      else if (anyInRoot) PDF_BASE = '';
+    } catch {
+      // ignore; fallback to candidates
+    }
   } catch (e) {
     showError('Could not load book list. Is the server running?');
   }
@@ -478,10 +491,9 @@ async function extractBookFromPdf(book, imgEveryNPages) {
 
 function resolvePdfUrlCandidates(filename) {
   const encoded = encodeURIComponent(filename);
-  return [
-    `/books/${encoded}`, // preferred layout (public/books)
-    `/${encoded}` // fallback (pdfs placed directly in public/)
-  ];
+  if (PDF_BASE === '/books') return [`/books/${encoded}`];
+  if (PDF_BASE === '') return [`/${encoded}`];
+  return [`/books/${encoded}`, `/${encoded}`];
 }
 
 function chunkByPages(text, pagesPerChunk = 20) {
