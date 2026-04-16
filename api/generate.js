@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
       'gemini-1.0-pro'
-    ]);
+    ]).flatMap((m) => withAndWithoutModelsPrefix(m));
 
     const { text, lastErr } = await generateTextWithModelFallback({
       genAI,
@@ -168,6 +168,12 @@ function uniqueStrings(arr) {
 
 // Note: we intentionally do not pass a JSON schema to generationConfig,
 // because some Gemini endpoints reject `responseSchema` payloads.
+
+function withAndWithoutModelsPrefix(modelName) {
+  if (!modelName || typeof modelName !== 'string') return [];
+  if (modelName.startsWith('models/')) return [modelName, modelName.slice('models/'.length)];
+  return [modelName, `models/${modelName}`];
+}
 
 async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, imgParts }) {
   let lastErr = null;

@@ -164,7 +164,7 @@ app.post('/api/generate', async (req, res) => {
       'gemini-2.0-flash',
       'gemini-2.0-flash-lite',
       'gemini-1.0-pro'
-    ]);
+    ]).flatMap((m) => withAndWithoutModelsPrefix(m));
 
     const { text, lastErr } = await generateTextWithModelFallback({
       genAI,
@@ -230,6 +230,12 @@ function uniqueStrings(arr) {
     out.push(v);
   }
   return out;
+}
+
+function withAndWithoutModelsPrefix(modelName) {
+  if (!modelName || typeof modelName !== 'string') return [];
+  if (modelName.startsWith('models/')) return [modelName, modelName.slice('models/'.length)];
+  return [modelName, `models/${modelName}`];
 }
 
 function buildQuizSchema(numQuestions) {
