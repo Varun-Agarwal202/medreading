@@ -428,8 +428,21 @@ async function boot() {
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.mjs";
 
 async function extractBookFromPdf(book, imgEveryNPages) {
-  const url = await resolvePdfUrl(book.pdfFilename);
-  const pdf = await pdfjsLib.getDocument({ url }).promise;
+  const urls = resolvePdfUrlCandidates(book.pdfFilename);
+  let pdf = null;
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      pdf = await pdfjsLib.getDocument({ url }).promise;
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (!pdf) {
+    throw lastErr || new Error('Could not load PDF');
+  }
   const numPages = pdf.numPages;
 
   let fullText = '';
@@ -463,24 +476,12 @@ async function extractBookFromPdf(book, imgEveryNPages) {
   return { text: fullText.trim(), images };
 }
 
-async function resolvePdfUrl(filename) {
+function resolvePdfUrlCandidates(filename) {
   const encoded = encodeURIComponent(filename);
-  const candidates = [
+  return [
     `/books/${encoded}`, // preferred layout (public/books)
     `/${encoded}` // fallback (pdfs placed directly in public/)
   ];
-
-  for (const url of candidates) {
-    try {
-      const r = await fetch(url, { method: 'HEAD' });
-      if (r.ok) return url;
-    } catch {
-      // ignore and try next candidate
-    }
-  }
-
-  // If HEAD is blocked by hosting, just try the preferred path and let pdf.js surface the real error.
-  return candidates[0];
 }
 
 function chunkByPages(text, pagesPerChunk = 20) {
