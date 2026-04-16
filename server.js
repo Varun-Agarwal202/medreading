@@ -3,6 +3,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { geminiQuotaUserMessage, isGeminiQuotaOrRateLimitError } from './gemini-errors.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,6 +171,9 @@ app.post('/api/generate', async (req, res) => {
     });
 
     if (lastErr) {
+      if (isGeminiQuotaOrRateLimitError(lastErr)) {
+        return res.status(429).json({ error: geminiQuotaUserMessage() });
+      }
       const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
       return res.status(500).json({
         error:
@@ -180,7 +184,15 @@ app.post('/api/generate', async (req, res) => {
 
     let parsed = safeJsonParse(text);
     if (!parsed || !Array.isArray(parsed.questions)) {
-      const repaired = await repairToValidJson({ genAI, modelCandidates, badText: text });
+      let repaired = null;
+      try {
+        repaired = await repairToValidJson({ genAI, modelCandidates, badText: text });
+      } catch (e) {
+        if (isGeminiQuotaOrRateLimitError(e)) {
+          return res.status(429).json({ error: geminiQuotaUserMessage() });
+        }
+        throw e;
+      }
       parsed = repaired ?? parsed;
     }
 
@@ -328,6 +340,9 @@ async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, i
         return { text, lastErr: null };
       } catch (e) {
         lastErr = e;
+        if (isGeminiQuotaOrRateLimitError(e)) {
+          return { text: '', lastErr: e };
+        }
         const msg = e instanceof Error ? e.message : String(e);
         if (/404/i.test(msg) || /not found/i.test(msg) || /is not supported/i.test(msg)) break;
         continue;
@@ -362,7 +377,8 @@ async function repairToValidJson({ genAI, modelCandidates, badText }) {
       const text = result.text ?? '';
       const parsed = safeJsonParse(text);
       if (parsed && Array.isArray(parsed.questions)) return parsed;
-    } catch {
+    } catch (e) {
+      if (isGeminiQuotaOrRateLimitError(e)) throw e;
       // try next candidate
     }
   }

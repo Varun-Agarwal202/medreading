@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { geminiQuotaUserMessage, isGeminiQuotaOrRateLimitError } from '../gemini-errors.js';
 
 export const config = {
   api: {
@@ -111,6 +112,9 @@ export default async function handler(req, res) {
     });
 
     if (lastErr) {
+      if (isGeminiQuotaOrRateLimitError(lastErr)) {
+        return res.status(429).json({ error: geminiQuotaUserMessage() });
+      }
       const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
       return res.status(500).json({
         error:
@@ -122,7 +126,15 @@ export default async function handler(req, res) {
     // Parse, then if needed do a one-shot "repair" pass to force valid JSON.
     let parsed = safeJsonParse(text);
     if (!parsed || !Array.isArray(parsed.questions)) {
-      const repaired = await repairToValidJson({ genAI, modelCandidates, badText: text });
+      let repaired = null;
+      try {
+        repaired = await repairToValidJson({ genAI, modelCandidates, badText: text });
+      } catch (e) {
+        if (isGeminiQuotaOrRateLimitError(e)) {
+          return res.status(429).json({ error: geminiQuotaUserMessage() });
+        }
+        throw e;
+      }
       parsed = repaired ?? parsed;
     }
 
@@ -245,9 +257,12 @@ async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, i
         return { text, lastErr: null };
       } catch (e) {
         lastErr = e;
+        if (isGeminiQuotaOrRateLimitError(e)) {
+          return { text: '', lastErr: e };
+        }
         const msg = e instanceof Error ? e.message : String(e);
         if (/404/i.test(msg) || /not found/i.test(msg) || /is not supported/i.test(msg)) break; // try next model
-        // transient / rate / json schema incompatibility — try next attempt/model
+        // transient errors — try next attempt/model
         continue;
       }
     }
@@ -280,7 +295,8 @@ async function repairToValidJson({ genAI, modelCandidates, badText }) {
       const text = result.text ?? '';
       const parsed = safeJsonParse(text);
       if (parsed && Array.isArray(parsed.questions)) return parsed;
-    } catch {
+    } catch (e) {
+      if (isGeminiQuotaOrRateLimitError(e)) throw e;
       // try next candidate
     }
   }
