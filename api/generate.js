@@ -196,7 +196,6 @@ async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, i
           model: candidate,
           contents: [{ role: 'user', parts: [{ text: prompt + attempt.extra }, ...imgParts] }],
           config: {
-            responseMimeType: 'application/json',
             temperature: attempt.temperature,
             maxOutputTokens: 2500
           }
@@ -241,7 +240,6 @@ async function repairToValidJson({ genAI, modelCandidates, badText }) {
         model: candidate,
         contents: [{ role: 'user', parts: [{ text: repairPrompt }] }],
         config: {
-          responseMimeType: 'application/json',
           temperature: 0,
           maxOutputTokens: 2000
         }
