@@ -152,19 +152,14 @@ app.post('/api/generate', async (req, res) => {
     ].join('\n');
 
     const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY, apiVersion: GEMINI_API_VERSION });
+    const availableModels = await listGenerateContentModels(genAI);
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
-      // Modern aliases / current families (per Google docs).
-      'gemini-flash-latest',
+      ...availableModels,
+      'models/gemini-2.5-flash',
       'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.5-pro',
-      // Older but commonly available.
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.0-pro'
+      'models/gemini-2.0-flash',
+      'gemini-2.0-flash'
     ]).flatMap((m) => withAndWithoutModelsPrefix(m));
 
     const { text, lastErr } = await generateTextWithModelFallback({
@@ -237,6 +232,42 @@ function withAndWithoutModelsPrefix(modelName) {
   if (!modelName || typeof modelName !== 'string') return [];
   if (modelName.startsWith('models/')) return [modelName, modelName.slice('models/'.length)];
   return [modelName, `models/${modelName}`];
+}
+
+async function listGenerateContentModels(genAI) {
+  try {
+    const modelsResult = await genAI.models.list();
+    let modelsArray = [];
+    if (Array.isArray(modelsResult)) {
+      modelsArray = modelsResult;
+    } else if (modelsResult && Array.isArray(modelsResult.models)) {
+      modelsArray = modelsResult.models;
+    } else if (modelsResult && typeof modelsResult[Symbol.asyncIterator] === 'function') {
+      for await (const m of modelsResult) modelsArray.push(m);
+    } else if (modelsResult && typeof modelsResult[Symbol.iterator] === 'function') {
+      for (const m of modelsResult) modelsArray.push(m);
+    }
+
+    const supported = modelsArray
+      .filter((m) => Array.isArray(m?.supportedActions) && m.supportedActions.includes('generateContent'))
+      .map((m) => m?.name)
+      .filter((name) => typeof name === 'string' && name.length > 0);
+
+    supported.sort((a, b) => {
+      const score = (s) => {
+        const x = String(s).toLowerCase();
+        if (x.includes('2.5-flash')) return 0;
+        if (x.includes('flash')) return 1;
+        if (x.includes('pro')) return 2;
+        return 3;
+      };
+      return score(a) - score(b);
+    });
+
+    return supported;
+  } catch {
+    return [];
+  }
 }
 
 function buildQuizSchema(numQuestions) {

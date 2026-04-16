@@ -90,21 +90,17 @@ export default async function handler(req, res) {
       // available on v1beta, which manifests as 404 "not found for API version v1beta".
       apiVersion: GEMINI_API_VERSION
     });
+    // Build candidate list from the API (most reliable), then fall back to a
+    // few well-known names. This avoids chasing deprecated / unavailable models.
+    const availableModels = await listGenerateContentModels(genAI);
     const modelCandidates = uniqueStrings([
       GEMINI_MODEL,
-      // Widely-available stable names (often supported when "latest" aliases are not).
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      // Aliases / newer families (may vary by key / API version).
-      'gemini-flash-latest',
+      ...availableModels,
+      // Minimal hardcoded fallbacks in case listing fails.
+      'models/gemini-2.5-flash',
       'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'gemini-2.5-pro',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-lite',
-      'gemini-1.0-pro'
+      'models/gemini-2.0-flash',
+      'gemini-2.0-flash'
     ]).flatMap((m) => withAndWithoutModelsPrefix(m));
 
     const { text, lastErr } = await generateTextWithModelFallback({
@@ -179,6 +175,43 @@ function withAndWithoutModelsPrefix(modelName) {
   if (!modelName || typeof modelName !== 'string') return [];
   if (modelName.startsWith('models/')) return [modelName, modelName.slice('models/'.length)];
   return [modelName, `models/${modelName}`];
+}
+
+async function listGenerateContentModels(genAI) {
+  try {
+    const modelsResult = await genAI.models.list();
+    let modelsArray = [];
+    if (Array.isArray(modelsResult)) {
+      modelsArray = modelsResult;
+    } else if (modelsResult && Array.isArray(modelsResult.models)) {
+      modelsArray = modelsResult.models;
+    } else if (modelsResult && typeof modelsResult[Symbol.asyncIterator] === 'function') {
+      for await (const m of modelsResult) modelsArray.push(m);
+    } else if (modelsResult && typeof modelsResult[Symbol.iterator] === 'function') {
+      for (const m of modelsResult) modelsArray.push(m);
+    }
+
+    const supported = modelsArray
+      .filter((m) => Array.isArray(m?.supportedActions) && m.supportedActions.includes('generateContent'))
+      .map((m) => m?.name)
+      .filter((name) => typeof name === 'string' && name.length > 0);
+
+    // Prefer Flash/Pro families if present.
+    supported.sort((a, b) => {
+      const score = (s) => {
+        const x = String(s).toLowerCase();
+        if (x.includes('2.5-flash')) return 0;
+        if (x.includes('flash')) return 1;
+        if (x.includes('pro')) return 2;
+        return 3;
+      };
+      return score(a) - score(b);
+    });
+
+    return supported;
+  } catch {
+    return [];
+  }
 }
 
 async function generateTextWithModelFallback({ genAI, modelCandidates, prompt, imgParts }) {
