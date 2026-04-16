@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { book, segment, images, numQuestions, startNumber } = req.body ?? {};
+    const { book, segment, images, numQuestions, startNumber, style } = req.body ?? {};
 
     if (!book?.title || !segment || !Number.isInteger(numQuestions) || numQuestions < 1) {
       return res.status(400).json({ error: 'Invalid request body.' });
@@ -49,23 +49,35 @@ export default async function handler(req, res) {
           .filter(Boolean)
       : [];
 
+    const styleLine = (() => {
+      const s = typeof style === 'string' ? style.toLowerCase() : '';
+      if (s === 'recall') return 'Style focus: factual recall (names, terms, numbers, events).';
+      if (s === 'definition') return 'Style focus: concepts/definitions (identify meaning of terms/ideas).';
+      if (s === 'application') return 'Style focus: application (short scenario; pick best answer).';
+      if (s === 'inference') return 'Style focus: inference/why (implications, cause/effect, reasoning).';
+      return 'Style focus: HOSA-style mix (recall + definition + inference + application).';
+    })();
+
     const prompt = [
       `Book: "${book.title}" by ${book.author ?? 'Unknown'}`,
       '',
       'You will be given an excerpt of the book with page markers like [Page N].',
       'If images are included, use them to create at least 20% image-grounded questions (figures, tables, charts, captions, diagrams).',
+      styleLine,
       '',
       `Task: Generate EXACTLY ${numQuestions} multiple-choice questions from this excerpt.`,
       'Requirements:',
       '- Each question has exactly 4 choices labeled A, B, C, D.',
       '- Exactly one correct answer.',
       '- Add a page reference at the end of each question text like "(pp N)" that matches a page marker present in the excerpt.',
-      '- Mix difficulty: recall, inference, and application.',
+      '- Provide an explanation (2–4 sentences) for why the correct answer is correct, and briefly why one distractor is wrong.',
+      '- Provide an evidence quote/snippet from the excerpt that supports the answer (1–2 lines), and the page number used.',
+      '- Mix difficulty within the chosen style.',
       '- Avoid vague questions; make distractors plausible.',
       `- Start numbering at ${safeStart}.`,
       '',
       'Respond ONLY with valid JSON in this exact format (no markdown, no explanation):',
-      '{ "questions": [ { "number": 1, "text": "… (pp N)", "choices": { "A": "...", "B": "...", "C": "...", "D": "..." }, "answer": "A" } ] }',
+      '{ "questions": [ { "number": 1, "text": "… (pp N)", "choices": { "A": "...", "B": "...", "C": "...", "D": "..." }, "answer": "A", "explanation": "...", "evidence": { "page": 12, "quote": "..." }, "qType": "recall|definition|application|inference", "difficulty": "easy|medium|hard" } ] }',
       '',
       'CRITICAL: Output MUST be raw JSON only. Do not wrap in backticks. Do not add commentary.',
       '',

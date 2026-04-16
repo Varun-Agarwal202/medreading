@@ -263,6 +263,31 @@
   .answer-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.35rem 0.75rem; margin-top: 0.75rem; }
   .answer-item { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(245,240,232,0.9); }
   .answer-item span { color: var(--gold-light); font-weight: 800; }
+
+  .explain {
+    display: none;
+    margin-top: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid rgba(212,201,181,0.18);
+    background: rgba(255,255,255,0.03);
+    color: rgba(245,240,232,0.9);
+    line-height: 1.35;
+  }
+  .explain.visible { display: block; }
+  .explain .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.9;
+  }
+  .explain .quote {
+    margin-top: 0.35rem;
+    font-style: italic;
+    color: rgba(245,240,232,0.82);
+  }
 </style>
 </head>
 <body>
@@ -290,6 +315,17 @@
             <option value="3">Every 3 pages</option>
           </select>
           <small>Images help with tables/figures/diagrams, but increases cost/time.</small>
+        </div>
+        <div class="field">
+          <label>Question style</label>
+          <select id="q-style">
+            <option value="mix">HOSA-style mix</option>
+            <option value="recall">Recall (facts)</option>
+            <option value="definition">Definition / concept</option>
+            <option value="application">Application (scenarios)</option>
+            <option value="inference">Inference / why</option>
+          </select>
+          <small>Matches the style of sample HOSA questions + explanations.</small>
         </div>
         <div class="field">
           <label>Book</label>
@@ -490,11 +526,12 @@ async function pMapLimit(items, limit, mapper) {
 // ─────────────────────────────────────────────
 async function generateQuestionsForSegment(book, segment, images, numQuestions, startNumber) {
   // Retry once on flaky model/JSON failures so a single bad segment doesn't stop the whole run.
+  const style = document.getElementById('q-style')?.value || 'mix';
   for (let attempt = 1; attempt <= 2; attempt++) {
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ book, segment, images, numQuestions, startNumber })
+      body: JSON.stringify({ book, segment, images, numQuestions, startNumber, style })
     });
     if (resp.ok) return await resp.json();
 
@@ -718,6 +755,12 @@ function renderTest(title, subtitle, sections) {
             </div>
           `).join('')}
         </div>
+        <div class="explain" id="${qid}-explain">
+          <div class="label">Explanation</div>
+          <div class="body">${escapeHtml(q.explanation || '')}</div>
+          ${q.evidence?.quote ? `<div class="label" style="margin-top:0.6rem;">Evidence (p. ${escapeHtml(String(q.evidence.page ?? ''))})</div>` : ''}
+          ${q.evidence?.quote ? `<div class="quote">"${escapeHtml(q.evidence.quote)}"</div>` : ''}
+        </div>
       `;
       secDiv.appendChild(card);
       answerItems.push({ num: q.number, answer: q.answer });
@@ -747,6 +790,9 @@ window.handleChoice = function(qid, letter) {
   const correctEl = document.getElementById(`${qid}-${correct}`);
   if (chosenEl) chosenEl.classList.add(letter === correct ? 'correct' : 'incorrect');
   if (correctEl && letter !== correct) correctEl.classList.add('correct');
+
+  const ex = document.getElementById(`${qid}-explain`);
+  if (ex) ex.classList.add('visible');
 };
 
 window.revealAll = function() {
